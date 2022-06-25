@@ -21,9 +21,39 @@ class ModeloController extends Controller
      *
      * @return \Illuminate\Http\Response
      */
-    public function index()
+    public function index(Request $request)
     {
-        return response()->json($this->modelo->all(), 200);
+
+
+        $modelos = array();
+
+        if ($request->has('atributos_marca')) {
+
+            $atributos_marca = $request->atributos_marca;
+
+            $modelos = $this->modelo->with('marca:id,' . $atributos_marca);
+        } else {
+            $modelos = $this->modelo->with('marca');
+        }
+
+        if ($request->has('filtro')) {
+
+            $filtros = explode(';', $request->filtro);
+
+            foreach ($filtros as $key => $condicao) {
+                $c = explode(':', $condicao);
+                $modelos = $modelos->where($c[0], $c[1], $c[2]);
+            }
+        }
+
+        if ($request->has('atributos')) {
+
+            $atributos = $request->atributos;
+            $modelos = $modelos->selectRaw($atributos)->get();
+        } else {
+            $modelos = $modelos->get();
+        }
+        return response()->json($modelos, 200);
     }
 
     /**
@@ -74,7 +104,8 @@ class ModeloController extends Controller
      */
     public function show($id)
     {
-        $modelo = $this->modelo->find($id);
+
+        $modelo = $this->modelo->with('marca')->find($id);
         if ($modelo === null) {
             return response()->json(['erro' => 'Recurso pesquisado não existe'], 404);
         }
@@ -110,7 +141,7 @@ class ModeloController extends Controller
 
 
         if ($request->method() === 'PATCH') {
-            return ['teste' => 'Verbo patch'];
+            // return ['teste' => 'Verbo patch'];
 
             $regrasDinamincas = array();
             //percorendo todas as regras definidas no model
@@ -134,16 +165,21 @@ class ModeloController extends Controller
         $imagem_urn = $imagem->store('imagens/modelos', 'public');
 
 
-        $modelo->update([
-            'marca_id' => $request->marca_id,
-            'nome' => $request->nome,
-            'imagem' => $imagem_urn,
-            'numero_portas' => $request->numero_portas,
-            'lugares' => $request->lugares,
-            'air_bag' => $request->air_bag,
-            'abs' => $request->abs,
-        ]);
+        $modelo->fill($request->all());
+        $modelo->imagem = $imagem_urn;
+        $modelo->save();
         return response()->json($modelo, 200);
+
+        // $modelo->update([
+        //     'marca_id' => $request->marca_id,
+        //     'nome' => $request->nome,
+        //     'imagem' => $imagem_urn,
+        //     'numero_portas' => $request->numero_portas,
+        //     'lugares' => $request->lugares,
+        //     'air_bag' => $request->air_bag,
+        //     'abs' => $request->abs,
+        // ]);
+
     }
 
     /**

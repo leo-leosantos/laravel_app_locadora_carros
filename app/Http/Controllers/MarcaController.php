@@ -13,10 +13,35 @@ class MarcaController extends Controller
         $this->marca = $marca;
     }
 
-    public function index()
+    public function index(Request $request)
     {
-        $marcas = $this->marca->all();
-        return response($marcas, 200);
+        $marcas = array();
+
+        if ($request->has('atributos_modelo')) {
+            $atributos_modelos = $request->atributos_modelo;
+            $marcas = $this->marca->with('modelos:id,' . $atributos_modelos);
+        } else {
+            $marcas = $this->marca->with('modelos');
+        }
+
+        if ($request->has('filtro')) {
+
+            $filtros = explode(';', $request->filtro);
+
+            foreach ($filtros as $key => $condicao) {
+                $c = explode(':', $condicao);
+                $marcas = $marcas->where($c[0], $c[1], $c[2]);
+            }
+        }
+
+        if ($request->has('atributos')) {
+
+            $atributos = $request->atributos;
+            $marcas = $marcas->selectRaw($atributos)->get();
+        } else {
+            $marcas = $marcas->get();
+        }
+        return response()->json($marcas, 200);
     }
 
 
@@ -41,7 +66,7 @@ class MarcaController extends Controller
 
     public function show($id)
     {
-        $marca = $this->marca->find($id);
+        $marca = $this->marca->with('modelos')->find($id);
         if ($marca === null) {
             return response()->json(['erro' => 'Recurso pesquisado não existe'], 404);
         }
@@ -66,7 +91,7 @@ class MarcaController extends Controller
 
 
         if ($request->method() === 'PATCH') {
-            return ['teste' => 'Verbo patch'];
+            //return ['teste' => 'Verbo patch'];
 
             $regrasDinamincas = array();
             //percorendo todas as regras definidas no model
@@ -89,12 +114,18 @@ class MarcaController extends Controller
         $imagem = $request->file('imagem');
         $imagem_urn = $imagem->store('imagens', 'public');
 
+        $marca->fill($request->all());
+        $marca->imagem = $imagem_urn;
 
-        $marca->update([
-            'nome' => $request->nome,
-            'imagem' => $imagem_urn
-        ]);
+        $marca->save();
+
         return response()->json($marca, 200);
+
+        // preencher o objeto $marca com os dados do request
+        // $marca->update([
+        //     'nome' => $request->nome,
+        //     'imagem' => $imagem_urn
+        // ]);
     }
 
 
